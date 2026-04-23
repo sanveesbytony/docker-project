@@ -2,6 +2,8 @@ services:
   return-scraper:
     build: .
     container_name: return-scraper
+    env_file:
+      - .env
     environment:
       - STEADFAST_USERNAME=${STEADFAST_USERNAME}
       - STEADFAST_PASSWORD=${STEADFAST_PASSWORD}
@@ -11,3 +13,18 @@ services:
       # Mount the data directory to persist Excel files
       - ./data:/app/data
     restart: "no"  # Don't restart after script completes
+
+# Optional web service (example)
+# web:
+#   build:
+#     context: .
+#     dockerfile: Dockerfile
+#   env_file:
+#     - .env
+#   command: >
+#     sh -c "pip install --no-cache-dir -r requirements-web.txt && python app.py"
+#   ports:
+#     - "8000:8000"
+#   volumes:
+#     - ./:/app
+#   restart: unless-stopped
