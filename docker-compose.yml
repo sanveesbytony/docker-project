@@ -1,0 +1,13 @@
+services:
+  return-scraper:
+    build: .
+    container_name: return-scraper
+    environment:
+      - STEADFAST_USERNAME=${STEADFAST_USERNAME}
+      - STEADFAST_PASSWORD=${STEADFAST_PASSWORD}
+      - TARGET_DATE=${TARGET_DATE:-today}
+      - DATA_DIR=/app/data
+    volumes:
+      # Mount the data directory to persist Excel files
+      - ./data:/app/data
+    restart: "no"  # Don't restart after script completes

@@ -1,0 +1,99 @@
+name: 📱 Cloud Control Panel
+
+on:
+  # This enables the "Run workflow" button on GitHub
+  workflow_dispatch:
+    inputs:
+      task_name:
+        description: 'Select Task'
+        required: true
+        default: 'Run Monitor (Google Sheets)'
+        type: choice
+        options:
+        - Run Monitor (Google Sheets)
+        - Scrape Returns (Single Date)
+        - Parcel Update
+        - Courier Updates
+        - Shipment Data
+      target_date:
+        description: 'Date (YYYY-MM-DD or "today")'
+        required: false
+        default: 'today'
+
+jobs:
+  execute-cloud-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # Max duration (6 hours)
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        pip install requests playwright pandas openpyxl
+        playwright install chromium
+        # Create data directory
+        mkdir -p data
+
+    - name: 🟢 Run Steadfast Monitor
+      if: ${{ github.event.inputs.task_name == 'Run Monitor (Google Sheets)' }}
+      env:
+        PYTHONUNBUFFERED: 1
+        STEADFAST_USERNAME: ${{ secrets.STEADFAST_USERNAME }}
+        STEADFAST_PASSWORD: ${{ secrets.STEADFAST_PASSWORD }}
+        GOOGLE_WEB_APP_URL: ${{ secrets.GOOGLE_WEB_APP_URL }}
+      run: |
+        echo "Starting Monitor in Cloud Mode..."
+        python steadfast_monitor.py
+
+    - name: 🔵 Run Return Scraper
+      if: ${{ github.event.inputs.task_name == 'Scrape Returns (Single Date)' }}
+      env:
+        PYTHONUNBUFFERED: 1
+        STEADFAST_USERNAME: ${{ secrets.STEADFAST_USERNAME }}
+        STEADFAST_PASSWORD: ${{ secrets.STEADFAST_PASSWORD }}
+        TARGET_DATE: ${{ github.event.inputs.target_date }}
+        DATA_DIR: ./data
+      run: |
+        echo "Scraping returns for $TARGET_DATE..."
+        python return_scraper.py --output ./data/Return_Scraped.xlsx
+
+    - name: 📦 Run Parcel Update
+      if: ${{ github.event.inputs.task_name == 'Parcel Update' }}
+      env:
+        PYTHONUNBUFFERED: 1
+        STEADFAST_USERNAME: ${{ secrets.STEADFAST_USERNAME }}
+        STEADFAST_PASSWORD: ${{ secrets.STEADFAST_PASSWORD }}
+      run: python "Parcel Update.py"
+
+    - name: 🚚 Run Courier Updates
+      if: ${{ github.event.inputs.task_name == 'Courier Updates' }}
+      env:
+        PYTHONUNBUFFERED: 1
+        STEADFAST_USERNAME: ${{ secrets.STEADFAST_USERNAME }}
+        STEADFAST_PASSWORD: ${{ secrets.STEADFAST_PASSWORD }}
+      run: python courier_receive_updater.py
+
+    - name: 🚢 Run Shipment Data
+      if: ${{ github.event.inputs.task_name == 'Shipment Data' }}
+      env:
+        PYTHONUNBUFFERED: 1
+        ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+        ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        TARGET_DATE: ${{ github.event.inputs.target_date }}
+      run: python website_script.py
+
+    # This step uploads any Excel files created in the 'data' folder so you can download them
+    - name: 📤 Upload Excel Files (Download Available)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Scraped-Data-Files
+        path: data/*.xlsx
+        retention-days: 5
